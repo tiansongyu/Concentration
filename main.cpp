@@ -6,13 +6,13 @@
 #include <memory>
 #include <unordered_map>
 
-// 简化Point结构体
+// Define Point structure
 struct Point {
     int x = 0, y = 0;
     Point(int _x = 0, int _y = 0) : x(_x), y(_y) {}
 };
 
-// 简化Block结构体
+// Define Block structure
 struct Block {
     unsigned char value = 0;
     Point point;
@@ -51,19 +51,19 @@ private:
     void handleKeyInput() {
         if (isKeyPressed(VK_F1) && !isRunning) {
             isRunning = true;
-            std::cout << "程序已启动，按F2暂停" << std::endl;
+            std::cout << "Program started, press F2 to pause" << std::endl;
             Sleep(200);
         }
         else if (isKeyPressed(VK_F2) && isRunning) {
             isRunning = false;
-            std::cout << "程序已暂停，按F1继续" << std::endl;
+            std::cout << "Program paused, press F1 to continue" << std::endl;
             Sleep(200);
         }
     }
 
     bool initializeGame() {
         if (!readWindow()) {
-            std::cout << "读取进程失败" << std::endl;
+            std::cout << "Failed to read process" << std::endl;
             return false;
         }
         return true;
@@ -73,7 +73,7 @@ private:
         while (isRunning) {
             if (isKeyPressed(VK_F2)) {
                 isRunning = false;
-                std::cout << "程序已暂停，按F1继续" << std::endl;
+                std::cout << "Program paused, press F1 to continue" << std::endl;
                 Sleep(200);
                 break;
             }
@@ -85,7 +85,7 @@ private:
 
     bool processGameState() {
         if (!readBlocksFromProcessMemory()) {
-            std::cout << "读取内存失败" << std::endl;
+            std::cout << "Failed to read memory" << std::endl;
             return true;
         }
 
@@ -99,7 +99,7 @@ private:
     bool readWindow() {
         windowHandle = FindWindowW(nullptr, L"QQ游戏 - 连连看角色版");
         if (!windowHandle) {
-            std::cout << "未找到指定进程" << std::endl;
+            std::cout << "Target process not found" << std::endl;
             return false;
         }
 
@@ -114,12 +114,12 @@ private:
         blockspair_.clear();
         std::unordered_map<unsigned char, std::vector<Block>> valueToBlocksMap;
 
-        // 按值分组
+        // Group by value
         for (const auto& block : blocks_) {
             valueToBlocksMap[block.value].push_back(block);
         }
 
-        // 查找匹配
+        // Matching
         for (const auto& [value, blocks] : valueToBlocksMap) {
             for (size_t i = 0; i < blocks.size(); ++i) {
                 for (size_t j = i + 1; j < blocks.size(); ++j) {
@@ -131,18 +131,18 @@ private:
         }
     }
 
-    // 读取进程内存中的方块数据
+    // Read blocks from process memory
     bool readBlocksFromProcessMemory() {
         if (processHandle == nullptr) {
-            std::cout << "无法获取进程句柄" << std::endl;
+            std::cout << "Cannot get process handle" << std::endl;
             return false;
         }
         blocks_.clear();
-        // 使用智能指针管理内存
+        // Use smart pointer to manage memory
         size_t regionSize = END_ADDRESS - START_ADDRESS + 1;
         std::unique_ptr<unsigned char[]> buffer(new unsigned char[regionSize]);
 
-        // 获取内存
+        // Read memory
         SIZE_T bytesRead;
         if (!ReadProcessMemory(processHandle,
             reinterpret_cast<LPCVOID>(START_ADDRESS), buffer.get(),
@@ -150,7 +150,7 @@ private:
             return false;
         }
 
-        // 处理内存数据
+        // Process memory data
         for (int row = 0; row < COLUMN_COUNT; ++row) {
             for (int col = 0; col < NUM_COLS; ++col) {
                 int index = row * NUM_COLS + col;
@@ -168,35 +168,35 @@ private:
     }
 
     void click(int index_x, int index_y) {
-        // 获取进程窗口的位置信息
+        // Get process window position info
         RECT rect;
         GetWindowRect(windowHandle, &rect);
         int windowWidth = rect.right - rect.left;
         int windowHeight = rect.bottom - rect.top;
 
-        // 计算窗口中心坐标
+        // Calculate window center coordinates
         int topleft_x = rect.left + 25;
         int topleft_y = rect.top + 195;
 
-        // 将鼠标移动到进程窗口的中心坐标
+        // Move mouse to process window center coordinates
         topleft_x += (index_x * 31);
         topleft_y += (index_y * 35);
 
-        SetCursorPos(topleft_x, topleft_y); // 设置鼠标位置
+        SetCursorPos(topleft_x, topleft_y); // Set mouse position
 
-        // 模拟鼠标左键按下和释放
+        // Simulate mouse left button press and release
         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
         mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
     }
 
     void eiminationBox() {
         SetWindowPos(windowHandle, HWND_TOPMOST, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE); // 将窗口置于最上层
+            SWP_NOMOVE | SWP_NOSIZE); // Set window to top layer
 
         for (auto& x : blockspair_) {
-            click(x.first.point.x, x.first.point.y); // 点击第一个方块
-            click(x.second.point.x, x.second.point.y); // 点击第二个方块
-            Sleep(1); // 可选：在点击之间添加延迟
+            click(x.first.point.x, x.first.point.y);  // Click first block
+            click(x.second.point.x, x.second.point.y); // Click second block
+            Sleep(1); // Optional: Add delay between clicks
         }
     }
 
@@ -204,47 +204,47 @@ private:
         int x1 = coord1.point.x, y1 = coord1.point.y;
         int x2 = coord2.point.x, y2 = coord2.point.y;
 
-        // 检查是否在同一行
+        // Check if in same row
         if (y1 == y2) {
             for (int x = std::min<int>(int(x1), int(x2)) + 1;
                 x < std::max<int>(int(x1), int(x2)); ++x) {
                 if (std::find(blocks_.begin(), blocks_.end(), Block(x, y1)) !=
                     blocks_.end())
-                    break; // 如果中间有方块，不能连接
+                    break; // If there's a block in between, cannot connect
             }
-            return true; // 可以连接
+            return true; // Can connect
         }
 
-        // 检查是否在同一列
+        // Check if in same column
         if (x1 == x2) {
             for (int y = std::min<int>(int(y1), int(y2)) + 1;
                 y < std::max<int>(int(y1), int(y2)); ++y) {
                 if (std::find(blocks_.begin(), blocks_.end(), Block(x1, y)) !=
                     blocks_.end())
-                    break; // 如果中间有方块，不能连接
+                    break; // If there's a block in between, cannot connect
             }
-            return true; // 可以连接
+            return true; // Can connect
         }
 
-        // 判断直角
+        // Check right angle
         if (std::find(blocks_.begin(), blocks_.end(), Block(int(x1), int(y2))) ==
             blocks_.end() &&
             can_connect(Block(int(x1), int(y1)), Block(int(x1), int(y2))) &&
             can_connect(Block(int(x1), int(y2)), Block(int(x2), int(y2)))) {
-            return true; // 可以连接
+            return true; // Can connect
         }
 
         if (std::find(blocks_.begin(), blocks_.end(), Block(int(x2), int(y1))) ==
             blocks_.end() &&
             can_connect(Block(int(x1), int(y1)), Block(int(x2), int(y1))) &&
             can_connect(Block(int(x2), int(y1)), Block(int(x2), int(y2)))) {
-            return true; // 可以连接
+            return true; // Can connect
         }
 
-        // 判断两个竖线，一个横线能否连通
+        // Check if can connect with two vertical lines and one horizontal line
         for (int i = 0; i < COLUMN_COUNT; ++i) {
             if (y1 == i || y2 == i) {
-                continue; // 如果y坐标相同，跳过
+                continue; // Skip if y coordinates are same
             }
             if (std::find(blocks_.begin(), blocks_.end(), Block(int(x1), int(i))) ==
                 blocks_.end() &&
@@ -253,14 +253,14 @@ private:
                 std::find(blocks_.begin(), blocks_.end(), Block(int(x2), int(i))) ==
                 blocks_.end() &&
                 can_connect(Block(int(x2), int(i)), Block(int(x2), int(y2)))) {
-                return true; // 可以连接
+                return true; // Can connect
             }
         }
 
-        // 判断两个横线，一个竖线能否连通
+        // Check if can connect with two horizontal lines and one vertical line
         for (int i = 0; i < NUM_COLS; ++i) {
             if (x1 == i || x2 == i) {
-                continue; // 如果x坐标相同，跳过
+                continue; // Skip if x coordinates are same
             }
             if (std::find(blocks_.begin(), blocks_.end(), Block(int(i), int(y1))) ==
                 blocks_.end() &&
@@ -269,14 +269,14 @@ private:
                 std::find(blocks_.begin(), blocks_.end(), Block(int(i), int(y2))) ==
                 blocks_.end() &&
                 can_connect(Block(int(i), int(y2)), Block(int(x2), int(y2)))) {
-                return true; // 可以连接
+                return true; // Can connect
             }
         }
 
-        return false; // 不能连接
+        return false; // Cannot connect
     }
 
-    // 检查按键状态
+    // Check key press state
     bool isKeyPressed(int key) const {
         return (GetAsyncKeyState(key) & 0x8000) != 0;
     }
