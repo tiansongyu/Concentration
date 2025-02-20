@@ -110,25 +110,181 @@ private:
         return processHandle != nullptr;
     }
 
+    // Add new board representation
+    struct GameBoard {
+        static constexpr int ROWS = 11;
+        static constexpr int COLS = 19;
+        std::vector<std::vector<unsigned char>> board;
+        
+        GameBoard() : board(ROWS, std::vector<unsigned char>(COLS, 0)) {}
+        
+        unsigned char& at(int y, int x) { 
+            return board[y][x]; 
+        }
+        
+        bool isValid(int y, int x) const {
+            return y >= 0 && y < ROWS && x >= 0 && x < COLS;
+        }
+        
+        bool isEmpty(int y, int x) const {
+            return board[y][x] == 0;
+        }
+    };
+    
+    GameBoard gameBoard;
+
+    // Optimized matching algorithm
     void find_matching_coordinates() {
         blockspair_.clear();
-        std::unordered_map<unsigned char, std::vector<Block>> valueToBlocksMap;
-
-        // Group by value
+        
+        // Sort blocks by value for faster matching
+        std::unordered_map<unsigned char, std::vector<Point>> valueMap;
         for (const auto& block : blocks_) {
-            valueToBlocksMap[block.value].push_back(block);
+            valueMap[block.value].push_back(block.point);
         }
 
-        // Matching
-        for (const auto& [value, blocks] : valueToBlocksMap) {
-            for (size_t i = 0; i < blocks.size(); ++i) {
-                for (size_t j = i + 1; j < blocks.size(); ++j) {
-                    if (can_connect(blocks[i], blocks[j])) {
-                        blockspair_.emplace_back(blocks[i], blocks[j]);
+        // Process each value group
+        for (const auto& [value, points] : valueMap) {
+            findBestMatches(points);
+        }
+    }
+
+    // Find optimal matches for a group of same-value points
+    void findBestMatches(const std::vector<Point>& points) {
+        std::vector<bool> matched(points.size(), false);
+        
+        // Process points from left to right and top to bottom
+        for (size_t i = 0; i < points.size(); i++) {
+            if (matched[i]) continue;
+            
+            // Find the best match for current point
+            int bestMatchIndex = -1;
+            int minTurns = 3;  // Maximum possible turns
+            int minDistance = INT_MAX;
+            
+            for (size_t j = i + 1; j < points.size(); j++) {
+                if (matched[j]) continue;
+                
+                int turns;
+                if (canConnect(points[i], points[j], turns)) {
+                    int distance = calculateDistance(points[i], points[j]);
+                    // Prefer matches with fewer turns and shorter distance
+                    if (turns < minTurns || (turns == minTurns && distance < minDistance)) {
+                        minTurns = turns;
+                        minDistance = distance;
+                        bestMatchIndex = j;
                     }
                 }
             }
+            
+            // Add the best match if found
+            if (bestMatchIndex != -1) {
+                Block b1(points[i].x, points[i].y);
+                Block b2(points[bestMatchIndex].x, points[bestMatchIndex].y);
+                b1.value = b2.value = gameBoard.at(points[i].y, points[i].x);
+                blockspair_.emplace_back(b1, b2);
+                matched[i] = matched[bestMatchIndex] = true;
+            }
         }
+    }
+
+    // Calculate Manhattan distance between two points
+    int calculateDistance(const Point& p1, const Point& p2) {
+        return std::abs(p2.x - p1.x) + std::abs(p2.y - p1.y);
+    }
+
+    // Optimized connection check
+    bool canConnect(const Point& p1, const Point& p2, int& turns) {
+        // Direct line check
+        if (p1.x == p2.x || p1.y == p2.y) {
+            if (checkStraightLine(p1, p2)) {
+                turns = 0;
+                return true;
+            }
+            return false;
+        }
+
+        // One turn check
+        if (checkOneTurn(p1, p2)) {
+            turns = 1;
+            return true;
+        }
+
+        // Two turns check
+        if (checkTwoTurns(p1, p2)) {
+            turns = 2;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool checkStraightLine(const Point& p1, const Point& p2) {
+        int minX = std::min<int>(p1.x, p2.x);
+        int maxX = std::max<int>(p1.x, p2.x);
+        int minY = std::min<int>(p1.y, p2.y);
+        int maxY = std::max<int>(p1.y, p2.y);
+
+        // Check horizontal line
+        if (p1.y == p2.y) {
+            for (int x = minX + 1; x < maxX; x++) {
+                if (!gameBoard.isEmpty(p1.y, x)) return false;
+            }
+            return true;
+        }
+
+        // Check vertical line
+        if (p1.x == p2.x) {
+            for (int y = minY + 1; y < maxY; y++) {
+                if (!gameBoard.isEmpty(y, p1.x)) return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    bool checkOneTurn(const Point& p1, const Point& p2) {
+        // Check turn at (p1.x, p2.y)
+        if (gameBoard.isEmpty(p2.y, p1.x) &&
+            checkStraightLine(p1, Point(p1.x, p2.y)) &&
+            checkStraightLine(Point(p1.x, p2.y), p2)) {
+            return true;
+        }
+
+        // Check turn at (p2.x, p1.y)
+        if (gameBoard.isEmpty(p1.y, p2.x) &&
+            checkStraightLine(p1, Point(p2.x, p1.y)) &&
+            checkStraightLine(Point(p2.x, p1.y), p2)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    bool checkTwoTurns(const Point& p1, const Point& p2) {
+        // Check all possible middle points
+        for (int x = 0; x < NUM_COLS; x++) {
+            if (x != p1.x && x != p2.x &&
+                gameBoard.isEmpty(p1.y, x) && gameBoard.isEmpty(p2.y, x) &&
+                checkStraightLine(p1, Point(x, p1.y)) &&
+                checkStraightLine(Point(x, p1.y), Point(x, p2.y)) &&
+                checkStraightLine(Point(x, p2.y), p2)) {
+                return true;
+            }
+        }
+
+        for (int y = 0; y < COLUMN_COUNT; y++) {
+            if (y != p1.y && y != p2.y &&
+                gameBoard.isEmpty(y, p1.x) && gameBoard.isEmpty(y, p2.x) &&
+                checkStraightLine(p1, Point(p1.x, y)) &&
+                checkStraightLine(Point(p1.x, y), Point(p2.x, y)) &&
+                checkStraightLine(Point(p2.x, y), p2)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Read blocks from process memory
@@ -198,82 +354,6 @@ private:
             click(x.second.point.x, x.second.point.y); // Click second block
             Sleep(1); // Optional: Add delay between clicks
         }
-    }
-
-    bool can_connect(const Block& coord1, const Block& coord2) {
-        int x1 = coord1.point.x, y1 = coord1.point.y;
-        int x2 = coord2.point.x, y2 = coord2.point.y;
-
-        // Check if in same row
-        if (y1 == y2) {
-            for (int x = std::min<int>(int(x1), int(x2)) + 1;
-                x < std::max<int>(int(x1), int(x2)); ++x) {
-                if (std::find(blocks_.begin(), blocks_.end(), Block(x, y1)) !=
-                    blocks_.end())
-                    break; // If there's a block in between, cannot connect
-            }
-            return true; // Can connect
-        }
-
-        // Check if in same column
-        if (x1 == x2) {
-            for (int y = std::min<int>(int(y1), int(y2)) + 1;
-                y < std::max<int>(int(y1), int(y2)); ++y) {
-                if (std::find(blocks_.begin(), blocks_.end(), Block(x1, y)) !=
-                    blocks_.end())
-                    break; // If there's a block in between, cannot connect
-            }
-            return true; // Can connect
-        }
-
-        // Check right angle
-        if (std::find(blocks_.begin(), blocks_.end(), Block(int(x1), int(y2))) ==
-            blocks_.end() &&
-            can_connect(Block(int(x1), int(y1)), Block(int(x1), int(y2))) &&
-            can_connect(Block(int(x1), int(y2)), Block(int(x2), int(y2)))) {
-            return true; // Can connect
-        }
-
-        if (std::find(blocks_.begin(), blocks_.end(), Block(int(x2), int(y1))) ==
-            blocks_.end() &&
-            can_connect(Block(int(x1), int(y1)), Block(int(x2), int(y1))) &&
-            can_connect(Block(int(x2), int(y1)), Block(int(x2), int(y2)))) {
-            return true; // Can connect
-        }
-
-        // Check if can connect with two vertical lines and one horizontal line
-        for (int i = 0; i < COLUMN_COUNT; ++i) {
-            if (y1 == i || y2 == i) {
-                continue; // Skip if y coordinates are same
-            }
-            if (std::find(blocks_.begin(), blocks_.end(), Block(int(x1), int(i))) ==
-                blocks_.end() &&
-                can_connect(Block(int(x1), int(y1)), Block(int(x1), int(i))) &&
-                can_connect(Block(int(x1), int(i)), Block(int(x2), int(i))) &&
-                std::find(blocks_.begin(), blocks_.end(), Block(int(x2), int(i))) ==
-                blocks_.end() &&
-                can_connect(Block(int(x2), int(i)), Block(int(x2), int(y2)))) {
-                return true; // Can connect
-            }
-        }
-
-        // Check if can connect with two horizontal lines and one vertical line
-        for (int i = 0; i < NUM_COLS; ++i) {
-            if (x1 == i || x2 == i) {
-                continue; // Skip if x coordinates are same
-            }
-            if (std::find(blocks_.begin(), blocks_.end(), Block(int(i), int(y1))) ==
-                blocks_.end() &&
-                can_connect(Block(int(x1), int(y1)), Block(int(i), int(y1))) &&
-                can_connect(Block(int(i), int(y1)), Block(int(i), int(y2))) &&
-                std::find(blocks_.begin(), blocks_.end(), Block(int(i), int(y2))) ==
-                blocks_.end() &&
-                can_connect(Block(int(i), int(y2)), Block(int(x2), int(y2)))) {
-                return true; // Can connect
-            }
-        }
-
-        return false; // Cannot connect
     }
 
     // Check key press state
