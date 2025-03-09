@@ -352,7 +352,7 @@ private:
         for (auto& x : blockspair_) {
             click(x.first.point.x, x.first.point.y);  // Click first block
             click(x.second.point.x, x.second.point.y); // Click second block
-            Sleep(1); // Optional: Add delay between clicks
+            // Sleep(1); // Optional: Add delay between clicks
         }
     }
 
@@ -376,6 +376,7 @@ private:
 
 int main() {
     Link link;
+    std::cout << "F1 ¿ªÊ¼\nF2 Í£Ö¹" << std::endl;
     link.run();
     return 0;
 }
